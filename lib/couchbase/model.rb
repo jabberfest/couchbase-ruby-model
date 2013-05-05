@@ -503,7 +503,8 @@ module Couchbase
           @meta = @meta.with_indifferent_access
         end
       end
-      @meta['cas'] = model.bucket.add(@id, value, options)
+      sanitized_value = sanitize_for_mass_assignment(value, options[:as])
+      @meta['cas'] = model.bucket.add(@id, sanitized_value, options)
       self
     end
 
@@ -544,7 +545,8 @@ module Couchbase
       end
       options = model.defaults.merge(options)
       value = (options[:format] == :plain) ?  @raw : attributes_with_values
-      @meta['cas'] = model.bucket.replace(@id, value, options)
+      sanitized_value = sanitize_for_mass_assignment(value, options[:as])
+      @meta['cas'] = model.bucket.replace(@id, sanitized_value, options)
       self
     end
 

@@ -818,6 +818,7 @@ module Couchbase
       extend ActiveModel::Naming
       include ActiveModel::Conversion
       include ActiveModel::Validations
+      include ActiveModel::MassAssignmentSecurity
 
       define_model_callbacks :create, :update, :delete, :save
       [:save, :create, :update, :delete].each do |meth|

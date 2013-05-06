@@ -503,7 +503,7 @@ module Couchbase
           @meta = @meta.with_indifferent_access
         end
       end
-      sanitized_value = sanitize_for_mass_assignment(value, options[:as])
+      sanitized_value = (options[:format] == :plain) ? value : sanitize_for_mass_assignment(value, options[:as])
       @meta['cas'] = model.bucket.add(@id, sanitized_value, options)
       self
     end
@@ -545,7 +545,7 @@ module Couchbase
       end
       options = model.defaults.merge(options)
       value = (options[:format] == :plain) ?  @raw : attributes_with_values
-      sanitized_value = sanitize_for_mass_assignment(value, options[:as])
+      sanitized_value = (options[:format] == :plain) ? value : sanitize_for_mass_assignment(value, options[:as])
       @meta['cas'] = model.bucket.replace(@id, sanitized_value, options)
       self
     end
@@ -831,6 +831,12 @@ module Couchbase
           end
         EOC
       end
+    end
+
+    if defined?(::Minitest)
+        require 'rubygems'
+        require 'protected_attributes'
+        include ActiveModel::MassAssignmentSecurity
     end
 
     # Redefine (if exists) #to_key to use #key if #id is missing

@@ -22,10 +22,13 @@ class Post < Couchbase::Model
   attribute :body
   attribute :author, :default => 'Anonymous'
   attribute :created_at, :default => lambda { Time.utc("2010-01-01") }
+  attr_accessible :title
+  attr_accessible :body
 end
 
 class ValidPost < Couchbase::Model
   attribute :title
+  attr_accessible :title
 
   def valid?
     title && !title.empty?
@@ -34,11 +37,13 @@ end
 
 class Brewery < Couchbase::Model
   attribute :name
+  attr_accessible :name
 end
 
 class Beer < Couchbase::Model
   attribute :name
   belongs_to :brewery
+  attr_accessible :name
 end
 
 class Attachment < Couchbase::Model
@@ -48,6 +53,7 @@ end
 class Comments < Couchbase::Model
   include Enumerable
   attribute :comments, :default => []
+  attr_accessible :comments
 end
 
 class TestModel < MiniTest::Unit::TestCase
@@ -248,6 +254,12 @@ class TestModel < MiniTest::Unit::TestCase
     assert_raises(Couchbase::Error::RecordInvalid) do
       ValidPost.create!(:title => nil)
     end
+  end
+
+  def test_attr_accessible
+    post = Post.create(:title => 'Hello, World!', :body => 'Text is assigned', :author => "Author is not assigned")
+    post = post.save
+    assert_equal post.as_json, 'Text is assigned'  
   end
 
   def test_blob_documents

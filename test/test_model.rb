@@ -337,6 +337,20 @@ class TestModel < MiniTest::Unit::TestCase
     assert_equal post_as_admin.author, nil    
   end
 
+  def test_attr_protected_update_attributes
+    post_as_default = ProtectedPost.create
+    post_as_default.update_attributes(:title => 'Hello, World!', :body => 'Text is assigned', :author => 'Jules Verne')
+    assert_equal post_as_default.title, nil  
+    assert_equal post_as_default.body, 'Text is assigned'
+    assert_equal post_as_default.author, 'Jules Verne'
+
+    post_as_admin = ProtectedPost.create
+    post_as_admin.update_attributes({:title => 'Hello, World!', :body => 'Text is assigned', :author => 'Jules Verne'}, :as => :admin)
+    assert_equal post_as_admin.title, 'Hello, World!'
+    assert_equal post_as_admin.body, nil
+    assert_equal post_as_admin.author, 'Jules Verne'
+  end
+
   def test_blob_documents
     contents = File.read(__FILE__)
     id = Attachment.create(:raw => contents).id

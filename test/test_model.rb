@@ -22,13 +22,30 @@ class Post < Couchbase::Model
   attribute :body
   attribute :author, :default => 'Anonymous'
   attribute :created_at, :default => lambda { Time.utc("2010-01-01") }
-  attr_accessible :title
-  attr_accessible :body
+end
+
+class AccessiblePost < Couchbase::Model
+  attribute :title
+  attribute :body
+  attribute :author
+  attribute :created_at, :default => lambda { Time.utc("2010-01-01")}
+
+  attr_accessible :title 
+  attr_accessible :body, :as => :admin
+end
+
+class ProtectedPost < Couchbase::Model
+  attribute :title
+  attribute :body
+  attribute :author
+  attribute :created_at, :default => lambda { Time.utc("2010-01-01")}
+
+  attr_protected :title 
+  attr_protected :body, :as => :admin
 end
 
 class ValidPost < Couchbase::Model
   attribute :title
-  attr_accessible :title
 
   def valid?
     title && !title.empty?
@@ -37,13 +54,11 @@ end
 
 class Brewery < Couchbase::Model
   attribute :name
-  attr_accessible :name
 end
 
 class Beer < Couchbase::Model
   attribute :name
   belongs_to :brewery
-  attr_accessible :name
 end
 
 class Attachment < Couchbase::Model
@@ -53,7 +68,6 @@ end
 class Comments < Couchbase::Model
   include Enumerable
   attribute :comments, :default => []
-  attr_accessible :comments
 end
 
 class TestModel < MiniTest::Unit::TestCase
@@ -215,7 +229,8 @@ class TestModel < MiniTest::Unit::TestCase
   def test_belongs_to_assoc
     brewery = Brewery.create(:name => "Anheuser-Busch")
     assert_includes Beer.attributes.keys, :brewery_id
-    beer = Beer.create(:name => "Budweiser", :brewery_id => brewery.id)
+    beer = Beer.create(:name => "Budweiser", :brewery_id=>brewery.id)
+
     assert_respond_to beer, :brewery
     assoc = beer.brewery
     assert_instance_of Brewery, assoc
@@ -256,10 +271,70 @@ class TestModel < MiniTest::Unit::TestCase
     end
   end
 
-  def test_attr_accessible
-    post = Post.create(:title => 'Hello, World!', :body => 'Text is assigned', :author => "Author is not assigned")
-    post = post.save
-    assert_equal post.as_json, 'Text is assigned'  
+  def test_attr_accessible_create
+    post_as_default = AccessiblePost.create(:title => 'Hello, World!', :body => 'Text is assigned', :author => 'Jules Verne')
+    assert_equal post_as_default.title, 'Hello, World!'  
+    assert_equal post_as_default.body, nil
+    assert_equal post_as_default.author, nil
+
+    post_as_default.title = 'Should Assign Explicitly'
+    post_as_default.body = 'Should Assign Explicitly'
+    post_as_default.author = 'Should Assign Explicitly'
+    assert_equal post_as_default.title, 'Should Assign Explicitly'
+    assert_equal post_as_default.body, 'Should Assign Explicitly'
+    assert_equal post_as_default.author, 'Should Assign Explicitly'
+
+    post_as_admin = AccessiblePost.create({:title => 'Hello, World!', :body => 'Text is assigned', :author => 'Jules Verne'}, :as => :admin)
+    assert_equal post_as_admin.title, nil
+    assert_equal post_as_admin.body, 'Text is assigned'
+    assert_equal post_as_admin.author, nil
+
+    post_as_admin.title = 'Should Assign Explicitly'
+    post_as_admin.body = 'Should Assign Explicitly'
+    post_as_admin.author = 'Should Assign Explicitly'
+    assert_equal post_as_admin.title, 'Should Assign Explicitly'
+    assert_equal post_as_admin.body, 'Should Assign Explicitly'
+    assert_equal post_as_admin.author, 'Should Assign Explicitly'
+  end
+
+  def test_attr_protected_create
+    post_as_default = ProtectedPost.create(:title => 'Hello, World!', :body => 'Text is assigned', :author => 'Jules Verne')
+    assert_equal post_as_default.title, nil  
+    assert_equal post_as_default.body, 'Text is assigned'
+    assert_equal post_as_default.author, 'Jules Verne'
+
+    post_as_default.title = 'Should Assign Explicitly'
+    post_as_default.body = 'Should Assign Explicitly'
+    post_as_default.author = 'Should Assign Explicitly'
+    assert_equal post_as_default.title, 'Should Assign Explicitly'
+    assert_equal post_as_default.body, 'Should Assign Explicitly'
+    assert_equal post_as_default.author, 'Should Assign Explicitly'
+
+    post_as_admin = ProtectedPost.create({:title => 'Hello, World!', :body => 'Text is assigned', :author => 'Jules Verne'}, :as => :admin)
+    assert_equal post_as_admin.title, 'Hello, World!'
+    assert_equal post_as_admin.body, nil
+    assert_equal post_as_admin.author, 'Jules Verne'
+
+    post_as_admin.title = 'Should Assign Explicitly'
+    post_as_admin.body = 'Should Assign Explicitly'
+    post_as_admin.author = 'Should Assign Explicitly'
+    assert_equal post_as_admin.title, 'Should Assign Explicitly'
+    assert_equal post_as_admin.body, 'Should Assign Explicitly'
+    assert_equal post_as_admin.author, 'Should Assign Explicitly'
+  end
+
+  def test_attr_accessible_update_attributes
+    post_as_default = AccessiblePost.create
+    post_as_default.update_attributes(:title => 'Hello, World!', :body => 'Text is assigned', :author => 'Jules Verne')
+    assert_equal post_as_default.title, 'Hello, World!'  
+    assert_equal post_as_default.body, nil
+    assert_equal post_as_default.author, nil
+
+    post_as_admin = AccessiblePost.create
+    post_as_admin.update_attributes({:title => 'Hello, World!', :body => 'Text is assigned', :author => 'Jules Verne'}, :as => :admin)
+    assert_equal post_as_admin.title, nil
+    assert_equal post_as_admin.body, 'Text is assigned'
+    assert_equal post_as_admin.author, nil    
   end
 
   def test_blob_documents

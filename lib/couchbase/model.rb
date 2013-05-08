@@ -451,7 +451,7 @@ module Couchbase
     # Optionally takes a Hash of attribute value pairs.
     #
     # @param [Hash] attrs attribute-value pairs
-    def initialize(attrs = {})
+    def initialize(attrs = {}, options = {})
       @errors = ::ActiveModel::Errors.new(self) if defined?(::ActiveModel)
       @_attributes = ::Hash.new do |h, k|
         default = self.class.attributes[k]
@@ -472,7 +472,7 @@ module Couchbase
         @doc = attrs.delete(:doc)
         @meta = attrs.delete(:meta)
         @raw = attrs.delete(:raw)
-        update_attributes(@doc || attrs)
+        update_attributes(@doc || attrs, options)
       else
         @raw = attrs
       end
@@ -503,8 +503,7 @@ module Couchbase
           @meta = @meta.with_indifferent_access
         end
       end
-      sanitized_value = (options[:format] == :plain) ? value : sanitize_for_mass_assignment(value, options[:as])
-      @meta['cas'] = model.bucket.add(@id, sanitized_value, options)
+      @meta['cas'] = model.bucket.add(@id, value, options)
       self
     end
 
@@ -545,8 +544,7 @@ module Couchbase
       end
       options = model.defaults.merge(options)
       value = (options[:format] == :plain) ?  @raw : attributes_with_values
-      sanitized_value = (options[:format] == :plain) ? value : sanitize_for_mass_assignment(value, options[:as])
-      @meta['cas'] = model.bucket.replace(@id, sanitized_value, options)
+      @meta['cas'] = model.bucket.replace(@id, value, options)
       self
     end
 
@@ -570,7 +568,7 @@ module Couchbase
     #   {{Couchbase::Bucket#set}}
     # @return [Couchbase::Model] The updated object
     def update(attrs, options = {})
-      update_attributes(attrs)
+      update_attributes(attrs, options)
       save(options)
     end
 
@@ -687,7 +685,23 @@ module Couchbase
     # @since 0.0.1
     #
     # @param [Hash] attrs attribute-value pairs.
-    def update_attributes(attrs)
+    def update_attributes(attrs, options = {})
+      if id = attrs.delete(:id)
+        @id = id
+      end
+      attrs = sanitize_for_mass_assignment(attrs, options[:as])
+      attrs.each do |key, value|
+        setter = :"#{key}="
+        send(setter, value) if respond_to?(setter)
+      end
+    end
+
+    #Reload all attributes from Bucket bypassing mass-assignment
+    #
+    #@since 0.5.3
+    #
+    # @param [Hash] attrs atrribute-value pairs.
+    def reload_attributes(attrs)
       if id = attrs.delete(:id)
         @id = id
       end
@@ -708,7 +722,7 @@ module Couchbase
     def reload
       raise Couchbase::Error::MissingId, "missing id attribute" unless @id
       attrs = model.find(@id).attributes
-      update_attributes(attrs)
+      reload_attributes(attrs)
       self
     end
 
